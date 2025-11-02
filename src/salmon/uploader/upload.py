@@ -12,6 +12,7 @@ from salmon.constants import ARTIST_IMPORTANCES
 from salmon.release_notification import get_version
 from salmon.sources import SOURCE_ICONS
 from salmon.tagger.sources import METASOURCES
+from salmon.uploader.drmeter import make_dr_bbcode
 from salmon.uploader.spectrals import (
     make_spectral_bbcode,
 )
@@ -35,6 +36,7 @@ async def prepare_and_upload(
     request_id: int | str | None,
     source_url: str | None = None,
     override_description: str | None = None,
+    dr_results=None,
 ) -> tuple[int, int, str, Torrent]:
     """Compile data and upload torrent to tracker.
 
@@ -73,6 +75,7 @@ async def prepare_and_upload(
             lossy_comment,
             request_id,
             source_url=source_url,
+            dr_results=dr_results,
         )
     else:
         data = compile_data_existing_group(
@@ -88,6 +91,7 @@ async def prepare_and_upload(
             request_id,
             source_url=source_url,
             override_description=override_description,
+            dr_results=dr_results,
         )
     await gazelle_site.ensure_authenticated()
     torrent_path, torrent_content = generate_torrent(gazelle_site, path)
@@ -127,6 +131,7 @@ def compile_data_new_group(
     lossy_comment: str | None,
     request_id: int | str | None = None,
     source_url: str | None = None,
+    dr_results=None,
 ) -> dict[str, Any]:
     """Compile data for a new torrent group upload.
 
@@ -171,7 +176,15 @@ def compile_data_new_group(
         "image": cover_url,
         "album_desc": generate_description(track_data, metadata),
         "release_desc": generate_t_description(
-            metadata, track_data, hybrid, metadata["urls"], spectral_urls, spectral_ids, lossy_comment, source_url
+            metadata,
+            track_data,
+            hybrid,
+            metadata["urls"],
+            spectral_urls,
+            spectral_ids,
+            lossy_comment,
+            source_url,
+            dr_results,
         ),
         "requestid": request_id,
     }
@@ -190,6 +203,7 @@ def compile_data_existing_group(
     request_id: int | str | None,
     source_url: str | None = None,
     override_description: str | None = None,
+    dr_results=None,
 ) -> dict[str, Any]:
     """Compile data for upload to an existing group.
 
@@ -228,7 +242,15 @@ def compile_data_existing_group(
         "release_desc": override_description
         if override_description
         else generate_t_description(
-            metadata, track_data, hybrid, metadata["urls"], spectral_urls, spectral_ids, lossy_comment, source_url
+            metadata,
+            track_data,
+            hybrid,
+            metadata["urls"],
+            spectral_urls,
+            spectral_ids,
+            lossy_comment,
+            source_url,
+            dr_results,
         ),
         "requestid": request_id,
     }
@@ -362,6 +384,7 @@ def generate_t_description(
     spectral_ids: dict[int, str] | None,
     lossy_comment: str | None,
     source_url: str | None,
+    dr_results=None,
 ) -> str:
     """Generate torrent description with spectrals and file info.
 
@@ -379,6 +402,7 @@ def generate_t_description(
         BBCode description string.
     """
     spectrals = make_spectral_bbcode(spectral_ids, spectral_urls) if spectral_urls else ""
+    dr_bbcode = make_dr_bbcode(dr_results, track_data) if dr_results else ""
 
     if not hybrid:
         track = next(iter(track_data.values()))
@@ -434,7 +458,7 @@ def generate_t_description(
         f"[b]smoked-salmon[/b] v{get_version()}[/url]"
     )
 
-    return f"{spectrals}{encode_specifics}{release_date}{tracklist}{lossy_notes}{source}{more_info}{footer}"
+    return f"{spectrals}{dr_bbcode}{encode_specifics}{release_date}{tracklist}{lossy_notes}{source}{more_info}{footer}"
 
 
 def generate_source_links(metadata_urls: list[str], source_url: str | None = None) -> str:

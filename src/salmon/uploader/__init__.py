@@ -49,6 +49,7 @@ from salmon.tagger.pre_data import construct_rls_data
 from salmon.tagger.retagger import rename_files, tag_files
 from salmon.tagger.review import review_metadata
 from salmon.tagger.tags import check_tags, gather_tags, standardize_tags
+from salmon.uploader.drmeter import calculate_dr
 from salmon.uploader.dupe_checker import (
     check_existing_group,
     dupe_check_recent_torrents,
@@ -423,6 +424,8 @@ async def upload(
             shutil.rmtree(path)
             return click.secho("\nDeleted folder, aborting upload...", fg="red")
 
+    dr_results = await calculate_dr(path)
+
     lossy_comment = None
     if spectrals_after:
         spectral_urls = None
@@ -511,6 +514,7 @@ async def upload(
                     source_url,
                     seedbox_uploader,
                     source=source,
+                    dr_results=dr_results,
                 )
 
                 request_id = None
@@ -1018,6 +1022,7 @@ async def upload_and_report(
     source: str | None = None,
     override_description: str | None = None,
     override_lossy_comment: str | None = None,
+    dr_results=None,
 ) -> tuple[int, int, str, Any, str]:
     """Upload torrent and report lossy master if needed.
 
@@ -1039,6 +1044,7 @@ async def upload_and_report(
         source: Media source.
         override_description: Override torrent description.
         override_lossy_comment: Override lossy comment.
+        dr_results: DR measurement results, or None.
 
     Returns:
         Tuple of (torrent_id, group_id, torrent_path, torrent_content, url).
@@ -1057,6 +1063,7 @@ async def upload_and_report(
         "spectral_ids": spectral_ids,
         "lossy_comment": lossy_comment,
         "request_id": request_id,
+        "dr_results": dr_results,
         "source_url": source_url,
         **({"override_description": override_description} if override_description else {}),
     }

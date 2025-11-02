@@ -26,6 +26,7 @@ from salmon.tagger.combine import combine_metadatas
 from salmon.tagger.metadata import clean_metadata, remove_various_artists
 from salmon.tagger.retagger import create_artist_str
 from salmon.tagger.sources import run_metadata
+from salmon.uploader.drmeter import calculate_dr, make_dr_table
 from salmon.uploader.spectrals import (
     check_spectrals,
     get_spectrals_path,
@@ -34,6 +35,17 @@ from salmon.uploader.spectrals import (
 )
 from salmon.uploader.torrent_client import TorrentClientGenerator
 from salmon.uploader.upload import generate_source_links
+
+
+@commandgroup.command()
+@click.argument("path", type=click.Path(exists=True, file_okay=False, resolve_path=True), nargs=1)
+async def calcdr(path):
+    """Calculate DRs for a folder"""
+    audio_info = gather_audio_info(path)
+    result = await calculate_dr(path)
+
+    table = make_dr_table(result, audio_info)
+    click.secho(f"\n{table}")
 
 
 @commandgroup.command()
